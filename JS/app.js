@@ -1,5 +1,4 @@
 // 1. BASE DE DATOS DE LA MALLA
-// Hemos mapeado las materias, sus créditos, los iconos representativos y sus requisitos.
 const subjectsData = [
     // NIVEL 1
     { id: "7017102", name: "MATEMÁTICAS OPERATIVAS", credits: 4, level: 1, reqIds: [], reqCreds: 0, icon: "🔢" },
@@ -74,17 +73,23 @@ const subjectsData = [
     { id: "7018905", name: "TRABAJO DE GRADO II", credits: 3, level: 9, reqIds: ["7018807"], reqCreds: 0, icon: "🎓" },
 
     // NIVEL 10
-    { id: "7018999", name: "PRÁCTICA", credits: 14, level: 10, reqIds: [], reqCreds: 144, icon: "💼" }
+    { id: "7018999", name: "PRÁCTICA", credits: 14, level: 10, reqIds: [], reqCreds: 144, icon: "💼" },
+
+    // MATERIAS ELECTIVAS
+    { id: "7018911", name: "BÚSQUEDA DE BASES DE DATOS", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "🔎" },
+    { id: "7018928", name: "DETERMINANTES DE LA PÚBLICA", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "📊" },
+    { id: "7018703", name: "ELECTIVA PROFESIONAL I", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "📘" },
+    { id: "7018900", name: "ELECTIVA PROFESIONAL II", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "📗" },
+    { id: "7018927", name: "FORMACIÓN ESTÉTICA", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "🎨" },
+    { id: "7018929", name: "RECURSOS DE LA INFORMACIÓN", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "💻" },
+    { id: "7018910", name: "SALUD INTERNACIONAL", credits: 2, level: "Electiva", reqIds: [], reqCreds: 0, icon: "🌎" }
 ];
 
 // 2. ESTADO DE LA APLICACIÓN
-// Buscamos en el disco duro del navegador si ya había guardado materias (LocalStorage)
 let passedSubjects = JSON.parse(localStorage.getItem('malla_luisa')) || [];
 let totalCredits = 0;
 
 // 3. FUNCIONES PRINCIPALES
-
-// Inicializar la aplicación
 function init() {
     renderGrid();
     updateStatus();
@@ -95,40 +100,53 @@ function renderGrid() {
     const container = document.getElementById('malla-container');
     container.innerHTML = '';
 
-    // Agrupar materias por nivel (1 al 10)
+    // 3.1 Renderizar Niveles del 1 al 10
     for (let level = 1; level <= 10; level++) {
         const subjectsInLevel = subjectsData.filter(s => s.level === level);
         if (subjectsInLevel.length === 0) continue;
 
-        // Crear contenedor del semestre
         const section = document.createElement('div');
         section.className = 'nivel-section';
         section.innerHTML = `<h3 class="nivel-title">Nivel ${level}</h3><div class="subjects-grid" id="grid-level-${level}"></div>`;
         container.appendChild(section);
 
         const grid = document.getElementById(`grid-level-${level}`);
-
-        // Crear cada tarjeta de materia
-        subjectsInLevel.forEach(subject => {
-            const card = document.createElement('div');
-            card.id = `card-${subject.id}`;
-            card.className = 'subject-card locked'; // Por defecto bloqueada
-            card.innerHTML = `
-                <div class="subject-icon">${subject.icon}</div>
-                <div class="subject-name">${subject.name}</div>
-                <div class="subject-credits">${subject.credits} Créditos</div>
-            `;
-            
-            // Evento al hacer clic en la materia
-            card.addEventListener('click', () => toggleSubject(subject.id));
-            grid.appendChild(card);
-        });
+        crearTarjetas(subjectsInLevel, grid);
     }
+
+    // 3.2 Renderizar Electivas al final
+    const electivas = subjectsData.filter(s => s.level === "Electiva");
+    if (electivas.length > 0) {
+        const section = document.createElement('div');
+        section.className = 'nivel-section';
+        // Agregamos el aviso de los créditos mínimos requeridos
+        section.innerHTML = `<h3 class="nivel-title" style="background: #f48fb1; color: white;">Materias Electivas (Mínimo 4 créditos)</h3><div class="subjects-grid" id="grid-electivas"></div>`;
+        container.appendChild(section);
+
+        const grid = document.getElementById('grid-electivas');
+        crearTarjetas(electivas, grid);
+    }
+}
+
+// Función auxiliar para no repetir código al crear las tarjetas
+function crearTarjetas(materias, contenedor) {
+    materias.forEach(subject => {
+        const card = document.createElement('div');
+        card.id = `card-${subject.id}`;
+        card.className = 'subject-card locked'; 
+        card.innerHTML = `
+            <div class="subject-icon">${subject.icon}</div>
+            <div class="subject-name">${subject.name}</div>
+            <div class="subject-credits">${subject.credits} Créditos</div>
+        `;
+        
+        card.addEventListener('click', () => toggleSubject(subject.id));
+        contenedor.appendChild(card);
+    });
 }
 
 // Calcular créditos y actualizar qué se puede ver y qué no
 function updateStatus() {
-    // 3.1 Calcular créditos totales actuales
     totalCredits = 0;
     passedSubjects.forEach(id => {
         const sub = subjectsData.find(s => s.id === id);
@@ -136,26 +154,20 @@ function updateStatus() {
     });
     document.getElementById('total-credits').innerText = totalCredits;
 
-    // 3.2 Evaluar cada materia
     subjectsData.forEach(subject => {
         const card = document.getElementById(`card-${subject.id}`);
-        
-        // Verificar si cumple prerrequisitos (materias)
+        if (!card) return; // Por si alguna tarjeta no se ha renderizado
+
         const meetsReqIds = subject.reqIds.every(reqId => passedSubjects.includes(reqId));
-        // Verificar si cumple prerrequisitos (créditos)
         const meetsReqCreds = totalCredits >= subject.reqCreds;
 
-        // Limpiar clases anteriores
         card.classList.remove('locked', 'unlocked', 'passed');
 
         if (passedSubjects.includes(subject.id)) {
-            // Si ya la aprobó
             card.classList.add('passed');
         } else if (meetsReqIds && meetsReqCreds) {
-            // Si no la ha aprobado, pero cumple los requisitos
             card.classList.add('unlocked');
         } else {
-            // Si no cumple requisitos
             card.classList.add('locked');
         }
     });
@@ -166,23 +178,17 @@ function toggleSubject(id) {
     const subject = subjectsData.find(s => s.id === id);
     const card = document.getElementById(`card-${id}`);
 
-    // Si está bloqueada, no hacer nada
     if (card.classList.contains('locked')) {
         return; 
     }
 
     if (passedSubjects.includes(id)) {
-        // Si ya estaba aprobada, la quitamos
         passedSubjects = passedSubjects.filter(passedId => passedId !== id);
     } else {
-        // Si no estaba aprobada, la agregamos
         passedSubjects.push(id);
     }
 
-    // Guardar en el navegador (Local Storage)
     localStorage.setItem('malla_luisa', JSON.stringify(passedSubjects));
-    
-    // Recalcular toda la malla
     updateStatus();
 }
 
